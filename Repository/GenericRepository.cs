@@ -1,17 +1,30 @@
+using Microsoft.EntityFrameworkCore;
+using WebAPIStarter.Data;
 using WebAPIStarter.IRepository;
 
 namespace WebAPIStarter.Repository;
 
 public class GenericRepository<T> : IGenericRepository<T> where T : class
 {
+    private readonly AppDbContext _context;
+    private readonly DbSet<T> _db;
+
+    public GenericRepository(AppDbContext context)
+    {
+        _context = context;
+        _db = _context.Set<T>();
+    }
     /// <summary>
     /// It will Delete an entity based on given id.
     /// </summary>
     /// <param name="id">int id</param>
     /// <returns></returns>
-    public Task Delete(int id)
+    public async Task Delete(int id)
     {
-        throw new NotImplementedException();
+        // Get the entity with Id
+        var entity = await _db.FindAsync(id);
+        // Remove it
+        _db.Remove(entity);
     }
 
     /// <summary>
@@ -20,7 +33,7 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class
     /// <param name="entities">IEnumerable<T> entities</param>
     public void DeleteRange(IEnumerable<T> entities)
     {
-        throw new NotImplementedException();
+        _db.RemoveRange(entities);
     }
 
     /// <summary>
@@ -29,9 +42,20 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class
     /// <param name="expression"></param>
     /// <param name="includes"></param>
     /// <returns></returns>
-    public Task<T> Get(System.Linq.Expressions.Expression<Func<T, bool>> expression = null, List<string> includes = null)
+    public async Task<T> Get(System.Linq.Expressions.Expression<Func<T, bool>> expression = null, List<string> includes = null)
     {
-        throw new NotImplementedException();
+        IQueryable<T> query = _db;
+
+        // Includes
+        if (includes != null)
+        {
+            foreach (var i in includes)
+            {
+                query = query.Include(i);
+            }
+        }
+
+        return await query.AsNoTracking().FirstOrDefaultAsync(expression);
     }
 
     /// <summary>
@@ -41,9 +65,32 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class
     /// <param name="orderBy"></param>
     /// <param name="includes"></param>
     /// <returns></returns>
-    public Task<List<T>> GetAll(System.Linq.Expressions.Expression<Func<T, bool>> expression = null, Func<IQueryable<T>, IOrderedQueryable<T>> orderBy = null, List<string> includes = null)
+    public async Task<List<T>> GetAll(System.Linq.Expressions.Expression<Func<T, bool>> expression = null, Func<IQueryable<T>, IOrderedQueryable<T>> orderBy = null, List<string> includes = null)
     {
-        throw new NotImplementedException();
+        IQueryable<T> query = _db;
+
+        // Apply expression.
+        if (expression != null)
+        {
+            query = query.Where(expression);
+        }
+
+        // Apply includes.
+        if (includes != null)
+        {
+            foreach (var i in includes)
+            {
+                query = query.Include(i);
+            }
+        }
+
+        // Apply order by.
+        if (orderBy != null)
+        {
+            query = orderBy(query);
+        }
+
+        return await query.AsNoTracking().ToListAsync();
     }
 
     /// <summary>
@@ -51,9 +98,9 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class
     /// </summary>
     /// <param name="entity"></param>
     /// <returns></returns>
-    public Task Insert(T entity)
+    public async Task Insert(T entity)
     {
-        throw new NotImplementedException();
+        await _db.AddAsync(entity);
     }
 
     /// <summary>
@@ -61,9 +108,9 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class
     /// </summary>
     /// <param name="entities"></param>
     /// <returns></returns>
-    public Task InsertRange(IEnumerable<T> entities)
+    public async Task InsertRange(IEnumerable<T> entities)
     {
-        throw new NotImplementedException();
+        await _db.AddRangeAsync(entities);
     }
 
     /// <summary>
@@ -72,6 +119,7 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class
     /// <param name="entity"></param>
     public void Update(T entity)
     {
-        throw new NotImplementedException();
+        _db.Attach(entity);
+        _context.Entry(entity).State = EntityState.Modified;
     }
 }
